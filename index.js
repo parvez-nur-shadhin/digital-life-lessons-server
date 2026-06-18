@@ -34,6 +34,7 @@ async function run() {
 
     const paymentCollection = database.collection("payments");
     const usersCollection = database.collection("user");
+    const lessonsCollection = database.collection("lessons");
 
     app.post("/api/payments", async (req, res) => {
       const payment = req.body;
@@ -58,6 +59,16 @@ async function run() {
       );
       res.send(updateResult);
     });
+
+    app.post('/api/lessons', async (req, res) => {
+        const lessonInformation = req.body;
+        const newLessonInformation = {
+            ...lessonInformation,
+            createdAt: new Date(),
+        }
+        const result = await lessonsCollection.insertOne(newLessonInformation);
+        res.send(result);
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
