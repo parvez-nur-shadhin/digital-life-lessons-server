@@ -97,6 +97,43 @@ async function run() {
       }
     });
 
+    app.put("/api/lessons/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updatedData = req.body;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ error: "Invalid lesson ID format" });
+        }
+
+        const filter = { _id: new ObjectId(id) };
+
+        delete updatedData._id;
+
+        const updateDoc = {
+          $set: updatedData,
+        };
+
+        const result = await lessonsCollection.updateOne(filter, updateDoc);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "Lesson not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating lesson:", error);
+        res.status(500).send({ error: "Failed to update lesson" });
+      }
+    });
+
+    app.delete("/api/lessons/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await lessonsCollection.deleteOne(query);
+      res.send(result);
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
