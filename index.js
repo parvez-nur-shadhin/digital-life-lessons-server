@@ -33,6 +33,7 @@ async function run() {
     const paymentCollection = database.collection("payments");
     const usersCollection = database.collection("user");
     const lessonsCollection = database.collection("lessons");
+    const favoritesCollection = database.collection("favorites");
 
     // Payment
 
@@ -132,6 +133,58 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await lessonsCollection.deleteOne(query);
       res.send(result);
+    });
+
+    // Favorites
+
+    app.post("/api/favorites", async (req, res) => {
+      try {
+        const favoriteLesson = req.body;
+
+        if (favoriteLesson._id) {
+          favoriteLesson.lessonId = favoriteLesson._id; 
+          delete favoriteLesson._id; 
+        }
+
+        const result = await favoritesCollection.insertOne(favoriteLesson);
+        res.send(result);
+      } catch (error) {
+        console.error("Error saving favorite:", error);
+        res.status(500).send({ error: "Failed to save favorite" });
+      }
+    });
+
+    app.get("/api/favorites", async (req, res) => {
+      const result = await favoritesCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/api/favorites/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await favoritesCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.delete("/api/favorites/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        let query;
+        if (ObjectId.isValid(id)) {
+          query = {
+            $or: [{ _id: id }, { _id: new ObjectId(id) }],
+          };
+        } else {
+          query = { _id: id };
+        }
+
+        const result = await favoritesCollection.deleteOne(query);
+        res.send(result);
+      } catch (error) {
+        console.error("Error deleting favorite:", error);
+        res.status(500).send({ error: "Failed to delete" });
+      }
     });
 
     await client.db("admin").command({ ping: 1 });
