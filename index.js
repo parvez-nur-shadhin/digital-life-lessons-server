@@ -34,6 +34,7 @@ async function run() {
     const usersCollection = database.collection("user");
     const lessonsCollection = database.collection("lessons");
     const favoritesCollection = database.collection("favorites");
+    const flaggedCollection = database.collection("flagged");
 
     // Payment
 
@@ -142,8 +143,8 @@ async function run() {
         const favoriteLesson = req.body;
 
         if (favoriteLesson._id) {
-          favoriteLesson.lessonId = favoriteLesson._id; 
-          delete favoriteLesson._id; 
+          favoriteLesson.lessonId = favoriteLesson._id;
+          delete favoriteLesson._id;
         }
 
         const result = await favoritesCollection.insertOne(favoriteLesson);
@@ -185,6 +186,19 @@ async function run() {
         console.error("Error deleting favorite:", error);
         res.status(500).send({ error: "Failed to delete" });
       }
+    });
+
+    // Users
+
+    app.get("/api/user", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Flagged Content
+    app.get("/api/flagged", async (req, res) => {
+      const result = await flaggedCollection.find().toArray();
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
