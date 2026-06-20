@@ -13,10 +13,9 @@ app.get("/", (req, res) => {
   res.send("Server Is Running Succesfully");
 });
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = process.env.MONGO_DB_URI;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -27,7 +26,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
     const database = client.db("digital_life_lessons");
@@ -35,6 +33,8 @@ async function run() {
     const paymentCollection = database.collection("payments");
     const usersCollection = database.collection("user");
     const lessonsCollection = database.collection("lessons");
+
+    // Payment
 
     app.post("/api/payments", async (req, res) => {
       const payment = req.body;
@@ -44,9 +44,8 @@ async function run() {
       };
       const result = await paymentCollection.insertOne(newPayment);
 
-      // update the user plan information
       const filter = { email: payment.email };
-      // update the value of the 'quantity' field to 5
+
       const updateDocument = {
         $set: {
           plan: "premium",
@@ -60,23 +59,49 @@ async function run() {
       res.send(updateResult);
     });
 
-    app.post('/api/lessons', async (req, res) => {
-        const lessonInformation = req.body;
-        const newLessonInformation = {
-            ...lessonInformation,
-            createdAt: new Date(),
-        }
-        const result = await lessonsCollection.insertOne(newLessonInformation);
-        res.send(result);
-    })
+    app.post("/api/lessons", async (req, res) => {
+      const lessonInformation = req.body;
+      const newLessonInformation = {
+        ...lessonInformation,
+        createdAt: new Date(),
+        likes: [],
+        savesCount: 0,
+      };
+      const result = await lessonsCollection.insertOne(newLessonInformation);
+      res.send(result);
+    });
+    app.get("/api/lessons", async (req, res) => {
+      const result = await lessonsCollection.find().toArray();
+      res.send(result);
+    });
 
-    // Send a ping to confirm a successful connection
+    app.get("/api/lessons/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ error: "Invalid lesson ID format" });
+        }
+
+        const query = { _id: new ObjectId(id) };
+        const result = await lessonsCollection.findOne(query);
+
+        if (!result) {
+          return res.status(404).send({ error: "Lesson not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error getting lesson by ID:", error);
+        res.status(500).send({ error: "Failed to fetch lesson" });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
   } finally {
-    // Ensures that the client will close when you finish/error
     // await client.close();
   }
 }
