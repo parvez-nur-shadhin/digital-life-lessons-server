@@ -201,6 +201,102 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/api/user", async (req, res) => {
+      try {
+        const users = await usersCollection.find().toArray();
+
+        const lessonCounts = await lessonsCollection
+          .aggregate([{ $group: { _id: "$creatorEmail", count: { $sum: 1 } } }])
+          .toArray();
+
+        const countsMap = {};
+        lessonCounts.forEach((lc) => {
+          countsMap[lc._id] = lc.count;
+        });
+
+        const usersWithCounts = users.map((user) => ({
+          ...user,
+          totalLessons: countsMap[user.email] || 0,
+        }));
+
+        res.send(usersWithCounts);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).send({ error: "Failed to fetch users" });
+      }
+    });
+
+    app.patch("/api/user/:id/role", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { role } = req.body;
+
+        if (!ObjectId.isValid(id))
+          return res.status(400).send({ error: "Invalid ID format" });
+
+        const query = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: { role: role },
+        };
+
+        const result = await usersCollection.updateOne(query, updateDoc);
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating role:", error);
+        res.status(500).send({ error: "Failed to update role" });
+      }
+    });
+
+    app.delete("/api/user/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        if (!ObjectId.isValid(id))
+          return res.status(400).send({ error: "Invalid ID format" });
+
+        const query = { _id: new ObjectId(id) };
+        const result = await usersCollection.deleteOne(query);
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).send({ error: "Failed to delete user" });
+      }
+    });
+
+    app.patch("/api/user/:id/profile", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { name, image } = req.body;
+
+        let query;
+        if (ObjectId.isValid(id)) {
+          query = { $or: [{ _id: new ObjectId(id) }, { _id: id }, { id: id }] };
+        } else {
+          query = { $or: [{ _id: id }, { id: id }] };
+        }
+
+        const updateDoc = {
+          $set: {
+            name: name,
+            image: image,
+            updatedAt: new Date(),
+          },
+        };
+
+        const result = await usersCollection.updateOne(query, updateDoc);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "User not found in database" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating profile:", error);
+        res.status(500).send({ error: "Failed to update profile" });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
