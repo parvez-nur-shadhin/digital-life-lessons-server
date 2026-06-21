@@ -297,6 +297,85 @@ async function run() {
       }
     });
 
+    // Flagged
+
+    app.get("/api/reports", async (req, res) => {
+      try {
+       
+        const query = {
+          reports: { $exists: true, $not: { $size: 0 } },
+        };
+
+        const reportedLessons = await lessonsCollection.find(query).toArray();
+        res.send(reportedLessons);
+      } catch (error) {
+        console.error("Error fetching reported lessons:", error);
+        res.status(500).send({ error: "Failed to fetch reports" });
+      }
+    });
+
+    
+    app.patch("/api/reports/:id/ignore", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+       
+        let query;
+        if (ObjectId.isValid(id)) {
+          query = { $or: [{ _id: new ObjectId(id) }, { _id: id }, { id: id }] };
+        } else {
+          query = { $or: [{ _id: id }, { id: id }] };
+        }
+
+       
+        const updateDoc = {
+          $set: { reports: [] },
+        };
+
+        const result = await lessonsCollection.updateOne(query, updateDoc);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "Lesson not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error clearing reports:", error);
+        res.status(500).send({ error: "Failed to clear reports" });
+      }
+    });
+
+    app.patch("/api/lessons/:id/report", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const reportData = req.body; 
+
+  
+        let query;
+        if (ObjectId.isValid(id)) {
+          query = { $or: [{ _id: new ObjectId(id) }, { _id: id }, { id: id }] };
+        } else {
+          query = { $or: [{ _id: id }, { id: id }] };
+        }
+
+   
+        const updateDoc = {
+          $push: { reports: reportData },
+        };
+
+        const result = await lessonsCollection.updateOne(query, updateDoc);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "Lesson not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error reporting lesson:", error);
+        res.status(500).send({ error: "Failed to report lesson" });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
