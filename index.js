@@ -301,7 +301,6 @@ async function run() {
 
     app.get("/api/reports", async (req, res) => {
       try {
-       
         const query = {
           reports: { $exists: true, $not: { $size: 0 } },
         };
@@ -314,12 +313,10 @@ async function run() {
       }
     });
 
-    
     app.patch("/api/reports/:id/ignore", async (req, res) => {
       try {
         const id = req.params.id;
 
-       
         let query;
         if (ObjectId.isValid(id)) {
           query = { $or: [{ _id: new ObjectId(id) }, { _id: id }, { id: id }] };
@@ -327,7 +324,6 @@ async function run() {
           query = { $or: [{ _id: id }, { id: id }] };
         }
 
-       
         const updateDoc = {
           $set: { reports: [] },
         };
@@ -348,9 +344,8 @@ async function run() {
     app.patch("/api/lessons/:id/report", async (req, res) => {
       try {
         const id = req.params.id;
-        const reportData = req.body; 
+        const reportData = req.body;
 
-  
         let query;
         if (ObjectId.isValid(id)) {
           query = { $or: [{ _id: new ObjectId(id) }, { _id: id }, { id: id }] };
@@ -358,7 +353,6 @@ async function run() {
           query = { $or: [{ _id: id }, { id: id }] };
         }
 
-   
         const updateDoc = {
           $push: { reports: reportData },
         };
@@ -373,6 +367,64 @@ async function run() {
       } catch (error) {
         console.error("Error reporting lesson:", error);
         res.status(500).send({ error: "Failed to report lesson" });
+      }
+    });
+
+    // --- ADMIN LESSON MANAGEMENT ROUTES ---
+
+    // 1. GET all lessons for Admin Dashboard
+    app.get("/api/admin/lessons", async (req, res) => {
+      try {
+        // Fetch absolutely everything (public and private) for the admin
+        const allLessons = await lessonsCollection
+          .find()
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.send(allLessons);
+      } catch (error) {
+        console.error("Error fetching all lessons:", error);
+        res.status(500).send({ error: "Failed to fetch lessons" });
+      }
+    });
+
+   
+    app.patch("/api/admin/lessons/:id/feature", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { isFeatured } = req.body; 
+
+        let query;
+        if (ObjectId.isValid(id)) {
+          query = { $or: [{ _id: new ObjectId(id) }, { _id: id }, { id: id }] };
+        } else {
+          query = { $or: [{ _id: id }, { id: id }] };
+        }
+
+        const updateDoc = {
+          $set: { isFeatured: isFeatured }, 
+        };
+
+        const result = await lessonsCollection.updateOne(query, updateDoc);
+        if (result.matchedCount === 0)
+          return res.status(404).send({ error: "Lesson not found" });
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error toggling feature status:", error);
+        res.status(500).send({ error: "Failed to update featured status" });
+      }
+    });
+
+   
+    app.get("/api/lessons/featured", async (req, res) => {
+      try {
+        const featured = await lessonsCollection
+          .find({ isFeatured: true })
+          .limit(3)
+          .toArray();
+        res.send(featured);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to fetch featured lessons" });
       }
     });
 
