@@ -469,7 +469,33 @@ async function run() {
       }
     });
 
-    await client.db("admin").command({ ping: 1 });
+    app.get("/api/users/top-contributors", async (req, res) => {
+      try {
+        const topContributors = await lessonsCollection
+          .aggregate([
+            { $match: { visibility: "public" } },
+            {
+              $group: {
+                _id: "$creatorId",
+                name: { $first: "$creatorName" },
+                image: { $first: "$creatorProfileImage" },
+                role: { $first: "$creatorPlan" },
+                lessons: { $sum: 1 },
+              },
+            },
+            { $sort: { lessons: -1 } },
+            { $limit: 4 },
+          ])
+          .toArray();
+
+        res.send(topContributors);
+      } catch (error) {
+        console.error("Error fetching top contributors:", error);
+        res.status(500).send({ error: "Failed to fetch top contributors" });
+      }
+    });
+
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
