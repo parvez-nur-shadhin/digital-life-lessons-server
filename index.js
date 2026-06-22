@@ -387,11 +387,10 @@ async function run() {
       }
     });
 
-   
     app.patch("/api/admin/lessons/:id/feature", async (req, res) => {
       try {
         const id = req.params.id;
-        const { isFeatured } = req.body; 
+        const { isFeatured } = req.body;
 
         let query;
         if (ObjectId.isValid(id)) {
@@ -401,7 +400,7 @@ async function run() {
         }
 
         const updateDoc = {
-          $set: { isFeatured: isFeatured }, 
+          $set: { isFeatured: isFeatured },
         };
 
         const result = await lessonsCollection.updateOne(query, updateDoc);
@@ -415,7 +414,49 @@ async function run() {
       }
     });
 
-   
+    app.patch("/api/lessons/:id/save", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { userId } = req.body;
+
+        if (!userId)
+          return res.status(400).send({ error: "User ID is required" });
+
+        let query;
+        if (ObjectId.isValid(id)) {
+          query = { $or: [{ _id: new ObjectId(id) }, { _id: id }, { id: id }] };
+        } else {
+          query = { $or: [{ _id: id }, { id: id }] };
+        }
+
+        const lesson = await lessonsCollection.findOne(query);
+        if (!lesson) return res.status(404).send({ error: "Lesson not found" });
+
+        const savedBy = lesson.savedBy || [];
+        const hasSaved = savedBy.includes(userId);
+
+        let updateDoc;
+
+        if (hasSaved) {
+          updateDoc = {
+            $pull: { savedBy: userId },
+            $inc: { savesCount: -1 },
+          };
+        } else {
+          updateDoc = {
+            $addToSet: { savedBy: userId },
+            $inc: { savesCount: 1 },
+          };
+        }
+
+        const result = await lessonsCollection.updateOne(query, updateDoc);
+        res.send({ success: true, isSaved: !hasSaved });
+      } catch (error) {
+        console.error("Error toggling save status:", error);
+        res.status(500).send({ error: "Failed to toggle save status" });
+      }
+    });
+
     app.get("/api/lessons/featured", async (req, res) => {
       try {
         const featured = await lessonsCollection
