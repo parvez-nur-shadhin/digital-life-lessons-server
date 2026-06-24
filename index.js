@@ -374,10 +374,10 @@ app.patch("/api/lessons/:id/report", async (req, res) => {
 
 // --- ADMIN LESSON MANAGEMENT ROUTES ---
 
-// 1. GET all lessons for Admin Dashboard
+
 app.get("/api/admin/lessons", async (req, res) => {
   try {
-    // Fetch absolutely everything (public and private) for the admin
+    
     const allLessons = await lessonsCollection
       .find()
       .sort({ createdAt: -1 })
@@ -386,6 +386,23 @@ app.get("/api/admin/lessons", async (req, res) => {
   } catch (error) {
     console.error("Error fetching all lessons:", error);
     res.status(500).send({ error: "Failed to fetch lessons" });
+  }
+});
+
+app.get("/api/users/:userId/saved", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    
+    const savedLessons = await lessonsCollection
+      .find({ savedBy: userId })
+      .sort({ createdAt: -1 }) 
+      .toArray();
+
+    res.send(savedLessons);
+  } catch (error) {
+    console.error("Error fetching saved lessons:", error);
+    res.status(500).send({ error: "Failed to fetch saved lessons" });
   }
 });
 
@@ -493,6 +510,80 @@ app.get("/api/users/top-contributors", async (req, res) => {
   } catch (error) {
     console.error("Error fetching top contributors:", error);
     res.status(500).send({ error: "Failed to fetch top contributors" });
+  }
+});
+
+app.patch("/api/lessons/:id/like", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { userId } = req.body;
+
+    if (!userId) return res.status(400).send({ error: "User ID is required" });
+
+   
+    const query = ObjectId.isValid(id)
+      ? { $or: [{ _id: new ObjectId(id) }, { _id: id }] }
+      : { _id: id };
+
+    const lesson = await lessonsCollection.findOne(query);
+    if (!lesson) return res.status(404).send({ error: "Lesson not found" });
+
+    
+    const likes = lesson.likes || [];
+    const hasLiked = likes.includes(userId);
+
+    let updateDoc;
+    if (hasLiked) {
+      updateDoc = { $pull: { likes: userId } };
+    } else {
+      updateDoc = { $addToSet: { likes: userId } }; 
+    }
+
+    const result = await lessonsCollection.updateOne(query, updateDoc);
+    res.send({ success: true, isLiked: !hasLiked });
+  } catch (error) {
+    console.error("Error toggling like status:", error);
+    res.status(500).send({ error: "Failed to toggle like status" });
+  }
+});
+
+
+app.get("/api/user/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const query = ObjectId.isValid(id)
+      ? { $or: [{ _id: new ObjectId(id) }, { _id: id }, { id: id }] }
+      : { $or: [{ _id: id }, { id: id }] };
+
+    const user = await usersCollection.findOne(query);
+
+    if (!user) return res.status(404).send({ error: "User not found" });
+
+   
+    delete user.password;
+
+    res.send(user);
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).send({ error: "Failed to fetch user profile" });
+  }
+});
+
+
+app.get("/api/users/:userId/lessons", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const userLessons = await lessonsCollection
+      .find({ creatorId: userId })
+      .sort({ createdAt: -1 }) 
+      .toArray();
+
+    res.send(userLessons);
+  } catch (error) {
+    console.error("Error fetching user lessons:", error);
+    res.status(500).send({ error: "Failed to fetch lessons" });
   }
 });
 
